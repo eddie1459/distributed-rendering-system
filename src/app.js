@@ -1,15 +1,15 @@
-const express = require('express');
 require('dotenv').config();
+const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpecs = require('../swagger');
 const mongoose = require('mongoose');
+const { log, error, checkForBusyWorkers, checkForWorkers, checkForFailedTasks } = require('./utils/index');
 
 const app = express();
 app.use(express.json());
 
 const rendersRoutes = require('./routes/taskRoutes');
 const workersRoutes = require('./routes/workerRoutes');
-const { log, error, checkForBusyWorkers, checkForWorkers, checkForFailedTasks } = require('./utils/index');
 
 let port = process.env.PORT || 3000;
 

@@ -4,7 +4,7 @@ const Worker = require('../models/workerModel');
 const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 const moment = require('moment');
-const { del } = require('express/lib/application');
+const app = require('../app');
 
 beforeAll(async () => {
     mongoose.connect('mongodb://localhost/taskdb')
@@ -32,20 +32,29 @@ const createLowTask = async (taskId, creationTime = moment(), status = "pending"
     await task.save()
 }
 
-const createRushTask = async (taskId) => {
-    const task = new Task({ status: "pending", lastHeartbeat: new Date(), taskId, priority: "RUSH", estimatedRenderTime: 3600 });
+const createRushTask = async (taskId, creationTime = moment()) => {
+    const task = new Task({ status: "pending", lastHeartbeat: new Date(), taskId, priority: "RUSH", estimatedRenderTime: 3600, creationTime });
     await task.save()
 }
 
-const createMediumTask = async (taskId) => {
-    const task = new Task({ status: "pending", lastHeartbeat: new Date(), taskId, priority: "MEDIUM", estimatedRenderTime: 3600 });
+const createMediumTask = async (taskId, creationTime = moment()) => {
+    const task = new Task({ status: "pending", lastHeartbeat: new Date(), taskId, priority: "MEDIUM", estimatedRenderTime: 3600, creationTime, });
     await task.save()
 }
 
-const createHighTask = async (taskId) => {
-    const task = new Task({ status: "pending", lastHeartbeat: new Date(), taskId, priority: "HIGH", estimatedRenderTime: 3600 });
+const createHighTask = async (taskId, creationTime = moment()) => {
+    const task = new Task({ status: "pending", lastHeartbeat: new Date(), taskId, priority: "HIGH", estimatedRenderTime: 3600, creationTime, });
     await task.save()
 }
+
+// describe('MongoDB Connection', () => {
+//     it('should handle connection error', async () => {
+//       const OLD_ENV = process.env;
+//       process.env.MONGO_URL = 'mongodb://nonexistenthost:27017/testdb';
+  
+//       await expect(app).rejects.toThrow('failed to connect to server');
+//     });
+// });
 
 describe('util testing', () => {
     it('checkForWorkers LOW priority', async () => {
@@ -59,12 +68,9 @@ describe('util testing', () => {
     it('checkForWorkers RUSH priority pre-emption', async () => {
         const lowTaskId = uuidv4();
         const rushTaskId = uuidv4();
-        await createLowTask(lowTaskId);
+        await createLowTask(lowTaskId, moment().subtract(6, 'minutes'));
         await checkForWorkers();
         await createRushTask(rushTaskId);
-        let lowTask = await Task.findOne({ taskId: lowTaskId })
-        lowTask.creationTime = moment().subtract(6, 'minutes');
-        lowTask.save();
         await checkForWorkers();
         const rushTask = await Task.findOne({ taskId: rushTaskId })
         expect(rushTask.status).toBe('rendering');
@@ -75,12 +81,9 @@ describe('util testing', () => {
     it('checkForWorkers MEDIUM priority pre-emption', async () => {
         const lowTaskId = uuidv4();
         const mediumTaskId = uuidv4();
-        await createLowTask(lowTaskId);
+        await createLowTask(lowTaskId, moment().subtract(725, 'minutes'));
         await checkForWorkers();
         await createMediumTask(mediumTaskId);
-        let lowTask = await Task.findOne({ taskId: lowTaskId })
-        lowTask.creationTime = moment().subtract(725, 'minutes');
-        lowTask.save();
         await checkForWorkers();
         const mediumTask = await Task.findOne({ taskId: mediumTaskId })
         expect(mediumTask.status).toBe('rendering');
@@ -89,27 +92,47 @@ describe('util testing', () => {
     }, 20000);
 
     it('checkForWorkers HIGH priority pre-emption', async () => {
-        const lowTaskId = uuidv4();
+        const mediumTaskId = uuidv4();
         const highTaskId = uuidv4();
-        await createLowTask(lowTaskId);
+        await createMediumTask(mediumTaskId, moment().subtract(725, 'minutes'));
         await checkForWorkers();
         await createHighTask(highTaskId);
-        let lowTask = await Task.findOne({ taskId: lowTaskId })
-        lowTask.creationTime = moment().subtract(725, 'minutes');
-        lowTask.save();
         await checkForWorkers();
         const highTask = await Task.findOne({ taskId: highTaskId })
         expect(highTask.status).toBe('rendering');
-        lowTask = await Task.findOne({ taskId: lowTaskId })
-        expect(lowTask.status).toBe('pending');
+        mediumTask = await Task.findOne({ taskId: mediumTaskId })
+        expect(mediumTask.status).toBe('pending');
     }, 20000);
+
+    it('checkForWorkers execute in order, should choose HIGH', async () => {
+        const lowTaskId = uuidv4();
+        const highTaskId = uuidv4();
+        const mediumTaskId = uuidv4();
+        await createLowTask(lowTaskId);
+        await createHighTask(highTaskId, moment().subtract(32, 'minutes'));
+        await createMediumTask(mediumTaskId);
+        await checkForWorkers();
+        const highTask = await Task.findOne({ taskId: highTaskId })
+        expect(highTask.status).toBe('rendering');
+    }, 20000);
+
+    // it('checkForWorkers execute in order, should choose MEDIUM', async () => {
+    //     const lowTaskId = uuidv4();
+    //     const highTaskId = uuidv4();
+    //     const mediumTaskId = uuidv4();
+    //     await createLowTask(lowTaskId, moment().subtract(720, 'minutes'));
+    //     await createHighTask(highTaskId);
+    //     await createMediumTask(mediumTaskId);
+    //     await checkForWorkers();
+    //     // running a second time to check if it chooses the medium task
+    //     await checkForWorkers();
+    //     const mediumTask = await Task.findOne({ taskId: mediumTaskId })
+    //     expect(mediumTask.status).toBe('rendering');
+    // }, 20000);
 
     it('checkForWorkers MEDIUM priority', async () => {
         const mediumTaskId = uuidv4();
-        await createMediumTask(mediumTaskId);
-        let mediumTask = await Task.findOne({ taskId: mediumTaskId })
-        mediumTask.creationTime = moment().subtract(720, 'minutes');
-        mediumTask.save();
+        await createMediumTask(mediumTaskId, moment().subtract(722, 'minutes'));
         await checkForWorkers();
         mediumTask = await Task.findOne({ taskId: mediumTaskId })
         expect(mediumTask.status).toBe('rendering');
@@ -117,10 +140,7 @@ describe('util testing', () => {
 
     it('checkForWorkers HIGH priority', async () => {
         const highTaskId = uuidv4();
-        await createHighTask(highTaskId);
-        let highTask = await Task.findOne({ taskId: highTaskId })
-        highTask.creationTime = moment().subtract(720, 'minutes');
-        highTask.save();
+        await createHighTask(highTaskId, moment().subtract(720, 'minutes'));
         await checkForWorkers();
         highTask = await Task.findOne({ taskId: highTaskId })
         expect(highTask.status).toBe('rendering');
@@ -129,12 +149,9 @@ describe('util testing', () => {
     it('checkForWorkers RUSH priority with existing RUSH', async () => {
         const rushTaskId = uuidv4();
         const rushTaskId2 = uuidv4();
-        await createRushTask(rushTaskId);
+        await createRushTask(rushTaskId, moment().subtract(6, 'minutes'));
         await checkForWorkers();
         await createRushTask(rushTaskId2);
-        let rushTask = await Task.findOne({ taskId: rushTaskId })
-        rushTask.creationTime = moment().subtract(6, 'minutes');
-        rushTask.save();
         await checkForWorkers();
         rushTask = await Task.findOne({ taskId: rushTaskId })
         expect(rushTask.status).toBe('rendering');

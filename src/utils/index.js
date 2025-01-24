@@ -125,18 +125,21 @@ module.exports = {
         const rushTasks = await Task.find({ status: 'pending', priority: "RUSH" });
         if (rushTasks.length > 0) {
             await preemptWorker("RUSH", rushTasks[0].taskId);
+            return;
         }
 
         // HIGH Task preempting
         const highTasks = await Task.find({ status: 'pending', priority: "HIGH" });
         if (highTasks.length > 0) {
             await preemptWorker("HIGH", highTasks[0].taskId);
+            return;
         }
 
         // MEDIUM Task preempting
         const mediumTasks = await Task.find({ status: 'pending', priority: "MEDIUM" });
         if (mediumTasks.length > 0) {
             await preemptWorker("MEDIUM", mediumTasks[0].taskId);
+            return;
         }
 
         // LOW Task processing
