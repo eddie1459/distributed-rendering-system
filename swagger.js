@@ -9,7 +9,7 @@ const options = {
       description: 'An API for a distributed rendering system',
     },
   },
-  apis: ['./src/routes/*.js'], // Path to your API routes
+  apis: ['./src/routes/*.js'],
   servers: [{
     url: 'http://localhost:3000',
     description: 'Development server',

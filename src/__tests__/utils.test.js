@@ -47,15 +47,6 @@ const createHighTask = async (taskId, creationTime = moment()) => {
     await task.save()
 }
 
-// describe('MongoDB Connection', () => {
-//     it('should handle connection error', async () => {
-//       const OLD_ENV = process.env;
-//       process.env.MONGO_URL = 'mongodb://nonexistenthost:27017/testdb';
-  
-//       await expect(app).rejects.toThrow('failed to connect to server');
-//     });
-// });
-
 describe('util testing', () => {
     it('checkForWorkers LOW priority', async () => {
         const taskId = uuidv4();
